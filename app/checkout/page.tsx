@@ -52,9 +52,9 @@ export default function CheckoutPage() {
       return
     }
 
-    const items = cart?.map((item: any) => ({
+    const items = (cart || []).map((item: any) => ({
       order_id: order.id,
-      product_id: item.products.id,
+      product_id: item.products?.id,
       quantity: item.quantity,
     }))
 
