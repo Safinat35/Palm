@@ -1,147 +1,85 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/src/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 export default function CheckoutPage() {
-  const [items, setItems] = useState<any[]>([])
   const [processing, setProcessing] = useState(false)
   const router = useRouter()
 
-  useEffect(() => {
-    loadCart()
-  }, [])
+  const placeOrder = async () => {
+    setProcessing(true)
 
-  const loadCart = async () => {
     const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
 
-    if (!user) return
+    if (!user) {
+      setProcessing(false)
+      return
+    }
 
-    const { data, error } = await supabase
+    const { data: cart } = await supabase
       .from('cart_items')
       .select(`
-        id,
         quantity,
-        product:products (
-          name,
+        products (
+          id,
           price
         )
       `)
       .eq('user_id', user.id)
 
+    const total =
+      cart?.reduce(
+        (sum, item: any) =>
+          sum + item.quantity * item.products.price,
+        0
+      ) || 0
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .insert({
+        user_id: user.id,
+        total,
+      })
+      .select()
+      .single()
+
     if (error) {
       console.log(error.message)
+      setProcessing(false)
       return
     }
 
-    setItems(data || [])
-  }
-
-  const total = items.reduce(
-    (sum: number, item: any) =>
-      sum + item.quantity * item.product.price,
-    0
-  )
-
-  const placeOrder = async () => {
-  setProcessing(true)
-
-  const { data: userData } = await supabase.auth.getUser()
-  const user = userData.user
-
-  if (!user) return
-
-  const { data: order, error } = await supabase
-    .from('orders')
-    .insert({
-      user_id: user.id,
-      total,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.log(error.message)
-    setProcessing(false)
-    return
-  }
-
-  const orderItems = items.map((item: any) => ({
-    order_id: order.id,
-    product_id: item.products.id,
-    quantity: item.quantity,
-  }))
-
-  await supabase.from('order_items').insert(orderItems)
-
-  await supabase
-    .from('cart_items')
-    .delete()
-    .eq('user_id', user.id)
-
-  setProcessing(false)
-
-  router.push('/orders')
-}
-
-    // 2. insert order items
-    const orderItems = items.map((item: any) => ({
+    const items = cart?.map((item: any) => ({
       order_id: order.id,
       product_id: item.products.id,
       quantity: item.quantity,
-}))
+    }))
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems)
+    await supabase.from('order_items').insert(items)
 
-    if (itemsError) {
-      console.log('ITEMS ERROR:', itemsError.message)
-    }
-
-    // 3. clear cart
     await supabase
       .from('cart_items')
       .delete()
       .eq('user_id', user.id)
 
     setProcessing(false)
-
-    // 4. redirect
     router.push('/orders')
   }
 
   return (
-    <main className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">💳 Checkout</h1>
+    <main className="p-6">
+      <h1>💳 Checkout</h1>
 
-      {items.length === 0 ? (
-        <p>Your cart is empty</p>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {items.map((item: any) => (
-              <div key={item.id} className="border p-3 rounded-lg">
-                {item.product.name} × {item.quantity}
-              </div>
-            ))}
-          </div>
-
-          <h2 className="text-xl font-bold mt-6">
-            Total: {total} SAR
-          </h2>
-
-          <button
-            onClick={placeOrder}
-            disabled={processing}
-            className="mt-4 w-full bg-green-600 text-white py-3 rounded-lg"
-          >
-            {processing ? 'Processing...' : 'Place Order'}
-          </button>
-        </>
-      )}
+      <button
+        onClick={placeOrder}
+        disabled={processing}
+        className="bg-green-600 text-white px-4 py-2 mt-4"
+      >
+        {processing ? 'Processing...' : 'Place Order'}
+      </button>
     </main>
   )
 }
