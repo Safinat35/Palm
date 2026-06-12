@@ -20,12 +20,14 @@ export default function OrdersPage() {
       .select(`
         id,
         total,
+        created_at,
         order_items (
           id,
           quantity,
           products (
             name,
-            price
+            price,
+            image_url
           )
         )
       `)
@@ -41,25 +43,26 @@ export default function OrdersPage() {
 
   return (
     <main className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">📦 Orders</h1>
+      <h1 className="text-2xl font-bold mb-6">📦 My Orders</h1>
 
       {orders.length === 0 ? (
         <p>No orders yet</p>
       ) : (
         orders.map((order: any) => (
-          <div key={order.id} className="border p-4 rounded-lg mb-4">
-            <p className="font-bold">Order:</p>
-            <p className="text-sm break-all">{order.id}</p>
+          <div key={order.id} className="border p-4 rounded-lg mb-5">
+            <p className="text-sm text-gray-500">
+              {new Date(order.created_at).toLocaleString()}
+            </p>
 
-            <p className="mt-2 font-bold">
+            <p className="font-bold mt-2">
               Total: {order.total} SAR
             </p>
 
-            <div className="mt-3 space-y-1">
-              {order.order_items?.map((item: any) => (
-                <p key={item.id} className="text-sm">
-                  {item.products?.name} × {item.quantity} — {item.products?.price} SAR
-                </p>
+            <div className="mt-3 space-y-2">
+              {order.order_items.map((item: any) => (
+                <div key={item.id} className="text-sm">
+                  {item.products?.name} × {item.quantity}
+                </div>
               ))}
             </div>
           </div>

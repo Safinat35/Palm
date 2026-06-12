@@ -46,41 +46,52 @@ export default function CheckoutPage() {
   )
 
   const placeOrder = async () => {
-    setProcessing(true)
+  setProcessing(true)
 
-    const { data: userData } = await supabase.auth.getUser()
-    const user = userData.user
+  const { data: userData } = await supabase.auth.getUser()
+  const user = userData.user
 
-    if (!user) {
-      alert('Please login first')
-      setProcessing(false)
-      return
-    }
+  if (!user) return
 
-    // 1. create order
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        total,
-      })
-      .select()
-      .single()
+  const { data: order, error } = await supabase
+    .from('orders')
+    .insert({
+      user_id: user.id,
+      total,
+    })
+    .select()
+    .single()
 
-    if (orderError) {
-      console.log('ORDER ERROR:', orderError.message)
-      alert(orderError.message)
-      setProcessing(false)
-      return
-    }
+  if (error) {
+    console.log(error.message)
+    setProcessing(false)
+    return
+  }
+
+  const orderItems = items.map((item: any) => ({
+    order_id: order.id,
+    product_id: item.products.id,
+    quantity: item.quantity,
+  }))
+
+  await supabase.from('order_items').insert(orderItems)
+
+  await supabase
+    .from('cart_items')
+    .delete()
+    .eq('user_id', user.id)
+
+  setProcessing(false)
+
+  router.push('/orders')
+}
 
     // 2. insert order items
     const orderItems = items.map((item: any) => ({
       order_id: order.id,
-      product_name: item.product.name,
-      price: item.product.price,
+      product_id: item.products.id,
       quantity: item.quantity,
-    }))
+}))
 
     const { error: itemsError } = await supabase
       .from('order_items')
