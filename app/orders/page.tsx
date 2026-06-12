@@ -20,15 +20,11 @@ export default function OrdersPage() {
       .select(`
         id,
         total,
-        created_at,
         order_items (
           id,
-          quantity,
-          products (
-            name,
-            price,
-            image_url
-          )
+          product_name,
+          price,
+          quantity
         )
       `)
       .eq('user_id', userData.user.id)
@@ -43,26 +39,27 @@ export default function OrdersPage() {
 
   return (
     <main className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">📦 My Orders</h1>
+      <h1 className="text-2xl font-bold mb-6">📦 Orders</h1>
 
       {orders.length === 0 ? (
         <p>No orders yet</p>
       ) : (
         orders.map((order: any) => (
-          <div key={order.id} className="border p-4 rounded-lg mb-5">
-            <p className="text-sm text-gray-500">
-              {new Date(order.created_at).toLocaleString()}
+          <div key={order.id} className="border p-4 rounded-lg mb-4">
+            <p className="font-bold">Order ID:</p>
+            <p className="text-sm text-gray-600 break-all">
+              {order.id}
             </p>
 
-            <p className="font-bold mt-2">
+            <p className="mt-2 font-bold">
               Total: {order.total} SAR
             </p>
 
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-1">
               {order.order_items.map((item: any) => (
-                <div key={item.id} className="text-sm">
-                  {item.products?.name} × {item.quantity}
-                </div>
+                <p key={item.id} className="text-sm">
+                  {item.product_name} × {item.quantity} — {item.price} SAR
+                </p>
               ))}
             </div>
           </div>
