@@ -27,22 +27,35 @@ export default function CartPage() {
   const loadCart = async () => {
     const { data: userData } = await supabase.auth.getUser()
 
+    if (!userData.user) return
+
     const { data, error } = await supabase
       .from('cart_items')
       .select(`
         id,
         quantity,
-        product:products (
+        product_id,
+        products (
+          id,
           name,
           price
         )
       `)
-      .eq('user_id', userData.user!.id)
+      .eq('user_id', userData.user.id)
 
-    if (!error) {
-      setItems(data || [])
+    if (error) {
+      console.log('CART ERROR:', error.message)
       setLoading(false)
+      return
     }
+
+    // 🔥 حماية من null products
+    const safeItems = (data || []).filter(
+      (item) => item.products !== null
+    )
+
+    setItems(safeItems)
+    setLoading(false)
   }
 
   const updateQuantity = async (id: string, qty: number) => {
@@ -67,12 +80,12 @@ export default function CartPage() {
 
   const total = items.reduce(
     (sum: number, item: any) =>
-      sum + item.quantity * item.product.price,
+      sum + item.quantity * item.products.price,
     0
   )
 
   return (
-    <main className="max-w-4xl mx-auto p-6">
+    <main className="p-6 max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">🛒 Cart</h1>
 
       {loading ? (
@@ -88,9 +101,9 @@ export default function CartPage() {
             >
               <div>
                 <h2 className="font-bold">
-                  {item.product.name}
+                  {item.products.name}
                 </h2>
-                <p>{item.product.price} SAR</p>
+                <p>{item.products.price} SAR</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -98,6 +111,7 @@ export default function CartPage() {
                   onClick={() =>
                     updateQuantity(item.id, item.quantity - 1)
                   }
+                  className="px-2"
                 >
                   -
                 </button>
@@ -108,6 +122,7 @@ export default function CartPage() {
                   onClick={() =>
                     updateQuantity(item.id, item.quantity + 1)
                   }
+                  className="px-2"
                 >
                   +
                 </button>
