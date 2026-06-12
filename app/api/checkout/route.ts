@@ -1,8 +1,29 @@
+import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
-export async function POST() {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-  return NextResponse.json({
-    url: 'https://checkout.stripe.com/pay/test-session'
+export async function POST(req: Request) {
+  const { items, userId } = await req.json()
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    mode: 'payment',
+
+    line_items: items.map((item: any) => ({
+      quantity: item.quantity,
+      price_data: {
+        currency: 'sar',
+        unit_amount: Math.round(item.price * 100),
+        product_data: {
+          name: item.name,
+        },
+      },
+    })),
+
+    success_url: `http://localhost:3000/success?userId=${userId}`,
+    cancel_url: `http://localhost:3000/checkout`,
   })
+
+  return NextResponse.json({ url: session.url })
 }

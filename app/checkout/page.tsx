@@ -1,14 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/src/lib/supabase'
-import { useRouter } from 'next/navigation'
 
 export default function CheckoutPage() {
+  const [cart, setCart] = useState<any[]>([])
   const [processing, setProcessing] = useState(false)
-  const router = useRouter()
 
-  const placeOrder = async () => {
+  useEffect(() => {
+    loadCart()
+  }, [])
+
+  const loadCart = async () => {
+    const { data: userData } = await supabase.auth.getUser()
+    const user = userData.user
+
+    if (!user) return
+
+    const { data } = await supabase
+      .from('cart_items')
+      .select(`
+        id,
+        quantity,
+        products (
+          id,
+          name,
+          price
+        )
+      `)
+      .eq('user_id', user.id)
+
+    setCart(data || [])
+  }
+
+  const payWithStripe = async () => {
     setProcessing(true)
 
     const { data: userData } = await supabase.auth.getUser()
@@ -19,67 +44,55 @@ export default function CheckoutPage() {
       return
     }
 
-    const { data: cart } = await supabase
-      .from('cart_items')
-      .select(`
-        quantity,
-        products (
-          id,
-          price
-        )
-      `)
-      .eq('user_id', user.id)
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        items: cart.map((item: any) => ({
+          name: item.products.name,
+          price: item.products.price,
+          quantity: item.quantity,
+        })),
+      }),
+    })
 
-    const total =
-      cart?.reduce(
-        (sum, item: any) =>
-          sum + item.quantity * item.products.price,
-        0
-      ) || 0
-
-    const { data: order, error } = await supabase
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        total,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.log(error.message)
-      setProcessing(false)
-      return
-    }
-
-    const items = (cart || []).map((item: any) => ({
-      order_id: order.id,
-      product_id: item.products?.id,
-      quantity: item.quantity,
-    }))
-
-    await supabase.from('order_items').insert(items)
-
-    await supabase
-      .from('cart_items')
-      .delete()
-      .eq('user_id', user.id)
+    const data = await res.json()
 
     setProcessing(false)
-    router.push('/orders')
+
+    if (data.url) {
+      window.location.href = data.url
+    }
   }
 
   return (
     <main className="p-6">
-      <h1>💳 Checkout</h1>
+      <h1 className="text-2xl font-bold mb-6">💳 Checkout</h1>
 
-      <button
-        onClick={placeOrder}
-        disabled={processing}
-        className="bg-green-600 text-white px-4 py-2 mt-4"
-      >
-        {processing ? 'Processing...' : 'Place Order'}
-      </button>
+      {cart.length === 0 ? (
+        <p>Cart is empty</p>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {cart.map((item: any) => (
+              <div key={item.id} className="border p-3 rounded">
+                {item.products?.name} × {item.quantity}
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={payWithStripe}
+            disabled={processing}
+            className="mt-6 w-full bg-black text-white py-3 rounded-lg"
+          >
+            {processing ? 'Processing...' : 'Pay with Stripe'}
+          </button>
+        </>
+      )}
     </main>
   )
 }
