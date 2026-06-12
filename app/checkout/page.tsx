@@ -15,8 +15,11 @@ export default function CheckoutPage() {
 
   const loadCart = async () => {
     const { data: userData } = await supabase.auth.getUser()
+    const user = userData.user
 
-    const { data } = await supabase
+    if (!user) return
+
+    const { data, error } = await supabase
       .from('cart_items')
       .select(`
         id,
@@ -26,7 +29,12 @@ export default function CheckoutPage() {
           price
         )
       `)
-      .eq('user_id', userData.user!.id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.log(error.message)
+      return
+    }
 
     setItems(data || [])
   }
@@ -41,10 +49,16 @@ export default function CheckoutPage() {
     setProcessing(true)
 
     const { data: userData } = await supabase.auth.getUser()
+    const user = userData.user
 
-    const user = userData.user!
+    if (!user) {
+      alert('Please login first')
+      setProcessing(false)
+      return
+    }
 
-    const { data: order } = await supabase
+    // 1. create order
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
         user_id: user.id,
@@ -53,6 +67,14 @@ export default function CheckoutPage() {
       .select()
       .single()
 
+    if (orderError) {
+      console.log('ORDER ERROR:', orderError.message)
+      alert(orderError.message)
+      setProcessing(false)
+      return
+    }
+
+    // 2. insert order items
     const orderItems = items.map((item: any) => ({
       order_id: order.id,
       product_name: item.product.name,
@@ -60,38 +82,55 @@ export default function CheckoutPage() {
       quantity: item.quantity,
     }))
 
-    await supabase.from('order_items').insert(orderItems)
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItems)
 
+    if (itemsError) {
+      console.log('ITEMS ERROR:', itemsError.message)
+    }
+
+    // 3. clear cart
     await supabase
       .from('cart_items')
       .delete()
       .eq('user_id', user.id)
 
     setProcessing(false)
+
+    // 4. redirect
     router.push('/orders')
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">💳 Checkout</h1>
+    <main className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">💳 Checkout</h1>
 
-      {items.map((item: any) => (
-        <p key={item.id}>
-          {item.product.name} × {item.quantity}
-        </p>
-      ))}
+      {items.length === 0 ? (
+        <p>Your cart is empty</p>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {items.map((item: any) => (
+              <div key={item.id} className="border p-3 rounded-lg">
+                {item.product.name} × {item.quantity}
+              </div>
+            ))}
+          </div>
 
-      <h2 className="text-xl font-bold mt-4">
-        Total: {total} SAR
-      </h2>
+          <h2 className="text-xl font-bold mt-6">
+            Total: {total} SAR
+          </h2>
 
-      <button
-        onClick={placeOrder}
-        disabled={processing}
-        className="mt-4 w-full bg-green-600 text-white py-3 rounded-lg"
-      >
-        {processing ? 'Processing...' : 'Place Order'}
-      </button>
+          <button
+            onClick={placeOrder}
+            disabled={processing}
+            className="mt-4 w-full bg-green-600 text-white py-3 rounded-lg"
+          >
+            {processing ? 'Processing...' : 'Place Order'}
+          </button>
+        </>
+      )}
     </main>
   )
 }
