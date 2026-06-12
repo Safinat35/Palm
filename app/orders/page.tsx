@@ -13,24 +13,58 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     const { data: userData } = await supabase.auth.getUser()
 
-    const { data } = await supabase
+    if (!userData.user) return
+
+    const { data, error } = await supabase
       .from('orders')
-      .select('*')
-      .eq('user_id', userData.user!.id)
+      .select(`
+        id,
+        total,
+        order_items (
+          id,
+          product_name,
+          price,
+          quantity
+        )
+      `)
+      .eq('user_id', userData.user.id)
+
+    if (error) {
+      console.log(error.message)
+      return
+    }
 
     setOrders(data || [])
   }
 
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">📦 Orders</h1>
+    <main className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">📦 Orders</h1>
 
-      {orders.map((order) => (
-        <div key={order.id} className="border p-4 mb-3">
-          <p>ID: {order.id}</p>
-          <p>Total: {order.total} SAR</p>
-        </div>
-      ))}
+      {orders.length === 0 ? (
+        <p>No orders yet</p>
+      ) : (
+        orders.map((order: any) => (
+          <div key={order.id} className="border p-4 rounded-lg mb-4">
+            <p className="font-bold">Order ID:</p>
+            <p className="text-sm text-gray-600 break-all">
+              {order.id}
+            </p>
+
+            <p className="mt-2 font-bold">
+              Total: {order.total} SAR
+            </p>
+
+            <div className="mt-3 space-y-1">
+              {order.order_items.map((item: any) => (
+                <p key={item.id} className="text-sm">
+                  {item.product_name} × {item.quantity} — {item.price} SAR
+                </p>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
     </main>
   )
 }
