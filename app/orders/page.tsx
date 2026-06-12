@@ -22,9 +22,11 @@ export default function OrdersPage() {
         total,
         order_items (
           id,
-          product_name,
-          price,
-          quantity
+          quantity,
+          products (
+            name,
+            price
+          )
         )
       `)
       .eq('user_id', userData.user.id)
@@ -46,19 +48,17 @@ export default function OrdersPage() {
       ) : (
         orders.map((order: any) => (
           <div key={order.id} className="border p-4 rounded-lg mb-4">
-            <p className="font-bold">Order ID:</p>
-            <p className="text-sm text-gray-600 break-all">
-              {order.id}
-            </p>
+            <p className="font-bold">Order:</p>
+            <p className="text-sm break-all">{order.id}</p>
 
             <p className="mt-2 font-bold">
               Total: {order.total} SAR
             </p>
 
             <div className="mt-3 space-y-1">
-              {order.order_items.map((item: any) => (
+              {order.order_items?.map((item: any) => (
                 <p key={item.id} className="text-sm">
-                  {item.product_name} × {item.quantity} — {item.price} SAR
+                  {item.products?.name} × {item.quantity} — {item.products?.price} SAR
                 </p>
               ))}
             </div>
