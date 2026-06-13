@@ -21,8 +21,8 @@ export async function POST(req: Request) {
       },
     })),
 
-    success_url: `http://localhost:3000/success?userId=${userId}`,
-    cancel_url: `http://localhost:3000/checkout`,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
   })
 
   return NextResponse.json({ url: session.url })
